@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>张妹妹18岁生日</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        .page-firework {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000000; z-index: 10; transition: opacity 0.5s ease;
+        }
+        .firework-stage {
+            position: fixed; top: 0; left: 0; width: 100%; height: 70vh;
+            background: transparent; z-index: 10; pointer-events: none;
+        }
+        .letsgo {
+            position: fixed; left: 2cm; right: 2cm; top: 50%;
+            transform: translateY(-50%); text-align: center; font-size: 10vw;
+            font-weight: bold; color: white; background: transparent; z-index: 20;
+            font-family: system-ui; white-space: nowrap; opacity: 0;
+            transition: opacity 0.5s ease; cursor: pointer;
+        }
+        .info {
+            position: fixed; bottom: 20px; left: 0; right: 0; text-align: center;
+            color: #555; font-family: system-ui; font-size: 12px; z-index: 20;
+        }
+
+        .page-birthday {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(145deg, #fff9f0, #ffe6c9);
+            z-index: 5; opacity: 0; visibility: hidden; transition: opacity 0.5s ease;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Segoe UI', cursive; overflow: hidden;
+        }
+        .page-birthday.show { opacity: 1; visibility: visible; z-index: 30; }
+
+        .message-card {
+            max-width: 600px; background: rgba(255,255,255,0.95); border-radius: 60px;
+            padding: 50px 30px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            z-index: 35; margin: 20px;
+        }
+        .birthday-text { font-size: 1.8rem; line-height: 1.4; color: #c44515; font-weight: bold; margin-bottom: 30px; }
+        .birthday-text span.name { color: #e68a2e; font-size: 2rem; }
+        .birthday-text span.age { font-size: 2rem; color: #ff6b6b; }
+
+        .ready-btn {
+            background: #000; color: white; font-size: 1.2rem; font-weight: bold;
+            padding: 12px 24px; border: none; border-radius: 50px; cursor: pointer;
+            font-family: system-ui; transition: transform 0.2s;
+        }
+        .ready-btn:hover { transform: scale(1.05); background: #333; }
+
+        .hand-drawn-flower { position: fixed; pointer-events: none; z-index: 32; }
+
+        .page-drawing {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #f0f0f0; z-index: 40; opacity: 0; visibility: hidden;
+            transition: opacity 0.5s ease; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+        }
+        .page-drawing.show { opacity: 1; visibility: visible; z-index: 50; }
+        .drawing-container { text-align: center; padding: 20px; max-width: 90%; max-height: 90%; }
+        .drawing-container img { max-width: 100%; max-height: 70vh; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .back-btn { margin-top: 30px; background: #333; color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer; }
+
+        @media (max-width: 600px) { .birthday-text { font-size: 1.4rem; } }
+    </style>
+</head>
+<body>
+
+<div class="page-firework" id="pageFirework">
+    <div class="firework-stage" id="fireworkStage"></div>
+    <div class="letsgo" id="letsgoText">Let's Go</div>
+    <div class="info">🎆 烟花3秒后点击 Let's Go 🎆</div>
+</div>
+
+<div class="page-birthday" id="pageBirthday">
+    <div class="message-card">
+        <div class="birthday-text">
+            🎂 今天是2026年6月19日 🎂<br><br>
+            我听说是一位姓<span class="name">张妹妹</span>的<br>
+            <span class="age">18岁</span>生日呀！
+        </div>
+        <button class="ready-btn" id="readyBtn">做好心理准备了吗？开始！</button>
+    </div>
+</div>
+
+<div class="page-drawing" id="pageDrawing">
+    <div class="drawing-container">
+        <img id="userDrawingImg" src="" alt="你的画">
+        <br>
+        <button class="back-btn" id="backBtn">返回</button>
+    </div>
+</div>
+
+<script>
+// 烟花逻辑
+(function() {
+    const stage = document.getElementById('fireworkStage');
+    const letsgo = document.getElementById('letsgoText');
+    
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;';
+    stage.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    
+    let particles = [], animationId = null, isActive = true, intervalId = null;
+    
+    function resizeCanvas() {
+        const rect = stage.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    function addFirework(cx, cy, count, speedScale, sizeScale, hueOffset) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = (Math.random() * 6 + 2) * speedScale;
+            particles.push({
+                x: cx, y: cy,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1,
+                color: `hsl(${(Math.random() * 360 + hueOffset) % 360}, 100%, 65%)`,
+                size: (Math.random() * 4 + 2) * sizeScale,
+                gravity: 0.12
+            });
+        }
+    }
+    
+    function launchRound() {
+        if (!isActive) return;
+        const w = canvas.width, h = canvas.height;
+        if (w === 0 || h === 0) return;
+        addFirework(w/2, h/2, 80, 1.0, 1.0, 0);
+        addFirework(w*0.8, h*0.8, 25, 0.9, 0.7, 120);
+        addFirework(w*0.85, h*0.2, 18, 0.8, 0.55, 240);
+    }
+    
+    function startAnimation() {
+        function draw() {
+            if (!isActive && particles.length === 0) {
+                if (animationId) cancelAnimationFrame(animationId);
+                animationId = null;
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                return;
+            }
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += p.gravity;
+                p.life -= 0.018;
+                if (p.life <= 0 || p.y > canvas.height + 150) {
+                    particles.splice(i, 1);
+                    i--;
+                    continue;
+                }
+                ctx.globalAlpha = p.life * 0.9;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            animationId = requestAnimationFrame(draw);
+        }
+        draw();
+    }
+    
+    function startFireworks() {
+        isActive = true;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        launchRound();
+        startAnimation();
+        intervalId = setInterval(() => { if (isActive) launchRound(); }, 200);
+        
+        setTimeout(() => {
+            isActive = false;
+            if (intervalId) clearInterval(intervalId);
+            if (letsgo) letsgo.style.opacity = '1';
+            setTimeout(() => { if (canvas.parentNode) canvas.parentNode.removeChild(canvas); }, 500);
+        }, 3000);
+    }
+    
+    startFireworks();
+})();
+
+// 页面切换
+const letsgoBtn = document.getElementById('letsgoText');
+const pageFirework = document.getElementById('pageFirework');
+const pageBirthday = document.getElementById('pageBirthday');
+const readyBtn = document.getElementById('readyBtn');
+const pageDrawing = document.getElementById('pageDrawing');
+const backBtn = document.getElementById('backBtn');
+const userDrawingImg = document.getElementById('userDrawingImg');
+
+function drawFlower(svg, x, y, size, color, rotation) {
+    svg.setAttribute('viewBox', '0 0 100 100');
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('transform', `translate(${x}, ${y}) rotate(${rotation}) scale(${size/30})`);
+    for (let i = 0; i < 6; i++) {
+        const angle = (i * 60) * Math.PI / 180;
+        const cx = 50 + Math.cos(angle) * 25;
+        const cy = 50 + Math.sin(angle) * 25;
+        const ellipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        ellipse.setAttribute('cx', cx);
+        ellipse.setAttribute('cy', cy);
+        ellipse.setAttribute('rx', '18');
+        ellipse.setAttribute('ry', '12');
+        ellipse.setAttribute('fill', color);
+        ellipse.setAttribute('stroke', '#333');
+        ellipse.setAttribute('stroke-width', '1.5');
+        g.appendChild(ellipse);
+    }
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '50');
+    circle.setAttribute('cy', '50');
+    circle.setAttribute('r', '12');
+    circle.setAttribute('fill', '#FFD700');
+    circle.setAttribute('stroke', '#333');
+    circle.setAttribute('stroke-width', '1.5');
+    g.appendChild(circle);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', '50');
+    line.setAttribute('y1', '50');
+    line.setAttribute('x2', '50');
+    line.setAttribute('y2', '90');
+    line.setAttribute('stroke', '#2E7D32');
+    line.setAttribute('stroke-width', '3');
+    g.appendChild(line);
+    const leaf1 = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    leaf1.setAttribute('cx', '45');
+    leaf1.setAttribute('cy', '70');
+    leaf1.setAttribute('rx', '10');
+    leaf1.setAttribute('ry', '5');
+    leaf1.setAttribute('fill', '#4CAF50');
+    leaf1.setAttribute('transform', 'rotate(-30 45 70)');
+    g.appendChild(leaf1);
+    const leaf2 = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    leaf2.setAttribute('cx', '55');
+    leaf2.setAttribute('cy', '75');
+    leaf2.setAttribute('rx', '10');
+    leaf2.setAttribute('ry', '5');
+    leaf2.setAttribute('fill', '#4CAF50');
+    leaf2.setAttribute('transform', 'rotate(30 55 75)');
+    g.appendChild(leaf2);
+    svg.appendChild(g);
+}
+
+letsgoBtn.addEventListener('click', function() {
+    pageFirework.style.opacity = '0';
+    pageBirthday.classList.add('show');
+    
+    const colors = ['#FF6B6B', '#FFB347', '#FF69B4', '#9B59B6', '#3498DB', '#5D9BEC', '#E67E22'];
+    for (let i = 0; i < 30; i++) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.classList.add('hand-drawn-flower');
+        const size = 30 + Math.random() * 30;
+        svg.setAttribute('width', size);
+        svg.setAttribute('height', size);
+        const left = Math.random() * 100;
+        const top = Math.random() * 100;
+        svg.style.left = `calc(${left}% + ${(Math.random() - 0.5) * 15}px)`;
+        svg.style.top = `calc(${top}% + ${(Math.random() - 0.5) * 15}px)`;
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const rotation = Math.random() * 360;
+        drawFlower(svg, size/2, size/2, size, color, rotation);
+        pageBirthday.appendChild(svg);
+    }
+    
+    setTimeout(() => { pageFirework.style.display = 'none'; }, 500);
+});
+
+// 设置你的图片路径
+userDrawingImg.src = 'images/pic1.jpg';  // ← 改成你的图片文件名
+
+readyBtn.addEventListener('click', function() {
+    pageBirthday.style.opacity = '0';
+    pageBirthday.style.visibility = 'hidden';
+    pageDrawing.classList.add('show');
+});
+
+backBtn.addEventListener('click', function() {
+    pageDrawing.classList.remove('show');
+    pageBirthday.style.opacity = '1';
+    pageBirthday.style.visibility = 'visible';
+});
+</script>
+</body>
+</html>
