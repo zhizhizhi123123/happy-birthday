@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>happy birthday</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* 公用花瓣背景（通过js添加） */
+        .flower-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .flower-bg svg {
+            position: absolute;
+            opacity: 0.85;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05));
+        }
+
+        .page-firework {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000000; z-index: 10; transition: opacity 0.5s ease;
+        }
+        .firework-stage {
+            position: fixed; top: 0; left: 0; width: 100%; height: 70vh;
+            background: transparent; z-index: 10; pointer-events: none;
+        }
+        .letsgo {
+            position: fixed; left: 2cm; right: 2cm; top: 50%;
+            transform: translateY(-50%); text-align: center; font-size: 10vw;
+            font-weight: bold; color: white; background: transparent; z-index: 20;
+            font-family: system-ui; white-space: nowrap; opacity: 0;
+            transition: opacity 0.5s ease; cursor: pointer;
+        }
+        .info {
+            position: fixed; bottom: 20px; left: 0; right: 0; text-align: center;
+            color: #555; font-family: system-ui; font-size: 12px; z-index: 20;
+        }
+
+        /* ----- 页面通用 ----- */
+        .page {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 5; opacity: 0; visibility: hidden; transition: opacity 0.5s ease;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden;
+        }
+        .page.show { opacity: 1; visibility: visible; z-index: 30; }
+
+        /* 第一页：生日页 - 保留暖黄渐变背景 */
+        .page-birthday {
+            background: linear-gradient(145deg, #fff9f0, #ffe6c9);
+        }
+        .message-card {
+            max-width: 600px; background: rgba(255,255,255,0.92); border-radius: 60px;
+            padding: 50px 30px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+            z-index: 35; margin: 20px; position: relative;
+        }
+        .birthday-text { font-size: 1.8rem; line-height: 1.4; color: #c44515; font-weight: bold; margin-bottom: 30px; }
+        .birthday-text span.name { color: #e68a2e; font-size: 1.6rem; }
+        .birthday-text span.age { font-size: 1.6rem; color: #ff6b6b; }
+
+        /* 第一页按钮：黑字 + 粉色“点击翻页” */
+        .ready-btn {
+            background: transparent;
+            color: #000000;
+            font-size: 1.2rem;
+            font-weight: 600;
+            padding: 12px 24px;
+            border: none;
+            cursor: pointer;
+            font-family: system-ui;
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+        .ready-btn .pink {
+            color: #ff69b4;
+            font-weight: 700;
+        }
+        .ready-btn:hover { transform: scale(1.05); }
+
+        /* ===== 第二页：绘画页 ===== */
+        .page-drawing {
+            background: #f0f0f0;
+        }
+        .drawing-container {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; text-align: center; padding: 20px; max-width: 90%; max-height: 90%;
+            z-index: 2; position: relative;
+        }
+        .drawing-container img {
+            max-width: 100%; max-height: 50vh; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .drawing-text {
+            text-align: center; font-size: 1.1rem; line-height: 1.6;
+            color: #000000; background: transparent; margin-top: 10px; font-weight: 600;
+        }
+        .drawing-text p { margin: 6px 0; }
+        .drawing-text #翻页 {
+            color: #ff69b4; cursor: pointer; font-weight: bold;
+            transition: transform 0.2s; display: inline-block;
+        }
+        .drawing-text #翻页:hover { transform: scale(1.1); }
+
+        /* ===== 第三页：植物塑页 ===== */
+        .page-plant {
+            background: #f0f0f0;
+        }
+        .plant-container {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; text-align: center; padding: 20px; max-width: 90%; max-height: 90%;
+            z-index: 2; position: relative;
+        }
+        .plant-text {
+            text-align: center; font-size: 1.1rem; line-height: 1.6;
+            color: #000000; background: transparent; margin-top: 10px; font-weight: 600;
+            cursor: pointer; min-height: 200px;
+        }
+        .plant-text p { margin: 6px 0; opacity: 0; transition: opacity 0.4s ease; }
+        .plant-text p.show { opacity: 1; }
+        .plant-text img {
+            max-width: 80%; max-height: 30vh; border-radius: 20px;
+            margin: 10px auto; display: none; box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+        .plant-text img.show { display: block; }
+        .plant-hint {
+            color: #ff69b4; font-size: 0.9rem; margin-top: 10px;
+            font-weight: 600; cursor: pointer;
+        }
+        .plant-hint:hover { transform: scale(1.05); }
+
+        /* ===== 第四页：信封页 ===== */
+        .page-fourth {
+            background: #f0f0f0;
+        }
+        .envelope-wrapper {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 90%; max-width: 500px; position: relative; z-index: 2;
+        }
+        .envelope {
+            position: relative; width: 100%; background: #fff5e6;
+            border-radius: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+            padding: 30px 20px 20px; transition: all 0.5s ease;
+            min-height: 300px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            border: 3px solid #e8c9a0;
+        }
+        .envelope::before {
+            content: ''; position: absolute; top: -2px; left: 50%;
+            transform: translateX(-50%); width: 60%; height: 0;
+            border-left: 30px solid transparent; border-right: 30px solid transparent;
+            border-top: 40px solid #f5dcc8; transition: all 0.5s ease;
+            z-index: 2; pointer-events: none;
+        }
+        .envelope.open::before {
+            border-top-color: transparent; transform: translateX(-50%) rotate(180deg);
+            top: -20px;
+        }
+        .envelope .seal {
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            width: 50px; height: 50px; background: #e63946; border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(230, 57, 70, 0.4); z-index: 3;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0; cursor: pointer; transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 2px solid #c62828; user-select: none;
+        }
+        .envelope .seal:hover { transform: translateX(-50%) scale(1.08); box-shadow: 0 6px 20px rgba(230, 57, 70, 0.5); }
+        .envelope .seal.opened { background: #2d6a4f; border-color: #1b4332; box-shadow: 0 4px 12px rgba(45, 106, 79, 0.4); }
+        .envelope .letter-content {
+            width: 100%; max-height: 0; overflow-y: auto; opacity: 0;
+            transition: max-height 0.6s ease, opacity 0.5s ease 0.1s;
+            padding: 0 10px; text-align: left; font-size: 1rem;
+            line-height: 1.7; color: #2d2d2d;
+            font-family: 'Segoe UI', 'PingFang SC', system-ui, sans-serif;
+            scrollbar-width: thin;
+        }
+        .envelope .letter-content::-webkit-scrollbar { width: 4px; }
+        .envelope .letter-content::-webkit-scrollbar-thumb { background: #d4a373; border-radius: 10px; }
+        .envelope .letter-content.show { max-height: 500px; opacity: 1; padding: 20px 10px 10px; }
+        .envelope .letter-content p { margin: 12px 0; }
+        .envelope .line-deco {
+            position: absolute; bottom: 20px; left: 30px; right: 30px;
+            height: 2px; background: repeating-linear-gradient(90deg, #d4a373, #d4a373 8px, transparent 8px, transparent 16px);
+            opacity: 0.3;
+        }
+
+        @media (max-width: 600px) {
+            .birthday-text { font-size: 1.4rem; }
+            .envelope { padding: 20px 15px 15px; min-height: 200px; }
+            .envelope .seal { width: 40px; height: 40px; font-size: 0; top: -10px; }
+            .envelope .letter-content { font-size: 0.9rem; }
+            .envelope .letter-content.show { max-height: 400px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== 烟花页 ===== -->
+<div class="page-firework" id="pageFirework">
+    <div class="firework-stage" id="fireworkStage"></div>
+    <div class="letsgo" id="letsgoText">Let's Go</div>
+    <audio id="bgMusic" loop preload="auto">
+        <source src="鸟之诗.mp3" type="audio/mpeg">
+    </audio>
+</div>
+
+<!-- ===== 第一页：生日页 ===== -->
+<div class="page page-birthday" id="pageBirthday">
+    <div class="message-card">
+        <div class="birthday-text">
+            🎂 今天是2026年6月19日 🎂<br><br>
+            我听说是一位<span class="name">姓张名妹妹</span>的<br>
+            <span class="age">18岁</span>生日呀！
+        </div>
+        <!-- 按钮：黑色字体 + 粉色“点击翻页” -->
+        <button class="ready-btn" id="readyBtn">
+            在这里祝你生日快乐呀，<span class="pink">点击翻页</span>
+        </button>
+    </div>
+</div>
+
+<!-- ===== 第二页：绘画页 ===== -->
+<div class="page page-drawing" id="pageDrawing">
+    <div class="drawing-container">
+        <img id="userDrawingImg" src="" alt="你的画">
+        <div class="drawing-text">
+            <p>当当当，实在没有绘画板和笔了</p>
+            <p>只能指绘了</p>
+            <p>但是我觉得我画出了精髓！</p>
+            <p>怎么样？欣赏完了请<span id="翻页">翻页</span></p>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 第三页：植物塑页 ===== -->
+<div class="page page-plant" id="pagePlant">
+    <div class="plant-container">
+        <div class="plant-text" id="plantText">
+            <p data-index="0">其实我不止画了你的人形态，我还找到了你的植物塑，出来吧皮卡丘！</p>
+            <img id="mushroomImg" src="images/pic3.jpg" alt="阳光蘑菇">
+            <p data-index="1">怎么样，是不是你，我觉得这个植物塑非常适合你，</p>
+            <p data-index="2">虽然你认为你自己阴暗像蘑菇，实际上一直在源源不断地生产阳光</p>
+            <p data-index="3">照亮身边的人，你是个很敏感温柔阳光幽默的孩子</p>
+            <p data-index="4">今天是进化日，往后你就是大阳光蘑菇了！</p>
+        </div>
+        <div class="plant-hint" id="plantHint">点这里继续</div>
+    </div>
+</div>
+
+<!-- ===== 第四页：信封页 ===== -->
+<div class="page page-fourth" id="pageFourth">
+    <div class="envelope-wrapper">
+        <div class="envelope" id="envelope">
+            <div class="seal" id="sealBtn"></div>
+            <div class="letter-content" id="letterContent">
+                <p>晚上好！首先在这里先祝你生日快乐，端午快乐，高考圆满结束快乐✧٩(ˊωˋ*)و✧</p>
+                <p>说起高考呢，我就要感叹一下高三牲的艰难！你能获得这个成绩真的挺不容易的，特别是自己本身还体弱多病的情况下，所以我很佩服你，有这股往前冲，坚持的韧劲，可能上天都喜欢多考验，洗刷有韧劲的孩子吧，我相信你未来一定会越走越远，祝福你永远拥有往前看，往前走的勇气。</p>
+                <p>其他的我也没什么好说的了，我们俩太熟了，你是我特别好的一个朋友，也是跟我特别像的一个朋友，说真的，连我俩的缺点都很像你知道吗哈哈哈哈哈，所以我不希望不能跟你保持朋友关系，本来是想让你做我闺蜜的，但是你这人太烦了，只好我做你兄弟了，以后有什么麻烦可以找我帮忙，我能帮上的我会帮你的，不过希望你还是麻烦少一点吧哈哈哈</p>
+                <p>就这样啦，因为你选的是ai编程，所以这里我麻烦了deepseek老师跟我一起做了这个网站，因为这个实在太耗时间了，我时间少怕来不及做完，所以我把大部分话和祝福都放在了这封信了。</p>
+                <p>希望你越来越好，越走越高，越飞越远，顺顺利利，平平安安，开心就好。</p>
+            </div>
+            <div class="line-deco"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============ 共用花瓣背景（轻量，重复使用） ============
+function addFlowerBackground(targetPage) {
+    if (targetPage.querySelector('.flower-bg')) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flower-bg';
+    const colors = ['#FF6B6B', '#FFB347', '#FF69B4', '#9B59B6', '#3498DB', '#5D9BEC', '#E67E22', '#FF8A80', '#B39DDB'];
+    function drawSimpleFlower(svg, size, color) {
+        svg.setAttribute('viewBox', '0 0 100 100');
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const petalCount = 5;
+        for (let i = 0; i < petalCount; i++) {
+            const angle = (i * (360 / petalCount) - 90) * Math.PI / 180;
+            const cx = 50 + Math.cos(angle) * 30;
+            const cy = 50 + Math.sin(angle) * 30;
+            const ellipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+            ellipse.setAttribute('cx', cx);
+            ellipse.setAttribute('cy', cy);
+            ellipse.setAttribute('rx', '18');
+            ellipse.setAttribute('ry', '12');
+            ellipse.setAttribute('fill', color);
+            ellipse.setAttribute('stroke', '#444');
+            ellipse.setAttribute('stroke-width', '2');
+            const rot = (angle * 180 / Math.PI) + 90;
+            ellipse.setAttribute('transform', `rotate(${rot}, ${cx}, ${cy})`);
+            g.appendChild(ellipse);
+        }
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '50');
+        circle.setAttribute('cy', '50');
+        circle.setAttribute('r', '14');
+        circle.setAttribute('fill', '#FFD700');
+        circle.setAttribute('stroke', '#444');
+        circle.setAttribute('stroke-width', '2');
+        g.appendChild(circle);
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', '50');
+        line.setAttribute('y1', '50');
+        line.setAttribute('x2', '50');
+        line.setAttribute('y2', '95');
+        line.setAttribute('stroke', '#2E7D32');
+        line.setAttribute('stroke-width', '4');
+        g.appendChild(line);
+        const leaf1 = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        leaf1.setAttribute('cx', '40');
+        leaf1.setAttribute('cy', '70');
+        leaf1.setAttribute('rx', '12');
+        leaf1.setAttribute('ry', '6');
+        leaf1.setAttribute('fill', '#4CAF50');
+        leaf1.setAttribute('stroke', '#2E7D32');
+        leaf1.setAttribute('stroke-width', '1.5');
+        leaf1.setAttribute('transform', 'rotate(-30 40 70)');
+        g.appendChild(leaf1);
+        const leaf2 = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        leaf2.setAttribute('cx', '60');
+        leaf2.setAttribute('cy', '75');
+        leaf2.setAttribute('rx', '12');
+        leaf2.setAttribute('ry', '6');
+        leaf2.setAttribute('fill', '#4CAF50');
+        leaf2.setAttribute('stroke', '#2E7D32');
+        leaf2.setAttribute('stroke-width', '1.5');
+        leaf2.setAttribute('transform', 'rotate(30 60 75)');
+        g.appendChild(leaf2);
+        svg.appendChild(g);
+    }
+    for (let i = 0; i < 25; i++) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        const size = 28 + Math.random() * 30;
+        svg.setAttribute('width', size);
+        svg.setAttribute('height', size);
+        const left = Math.random() * 100;
+        const top = Math.random() * 100;
+        svg.style.left = `calc(${left}% + ${(Math.random() - 0.5) * 8}px)`;
+        svg.style.top = `calc(${top}% + ${(Math.random() - 0.5) * 8}px)`;
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        drawSimpleFlower(svg, size, color);
+        wrapper.appendChild(svg);
+    }
+    targetPage.appendChild(wrapper);
+}
+
+// ============ 烟花逻辑 ============
+(function() {
+    const stage = document.getElementById('fireworkStage');
+    const letsgo = document.getElementById('letsgoText');
+    
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;';
+    stage.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    
+    let particles = [], animationId = null, isActive = true, intervalId = null;
+    
+    function resizeCanvas() {
+        const rect = stage.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    function addFirework(cx, cy, count, speedScale, sizeScale, hueOffset) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = (Math.random() * 6 + 2) * speedScale;
+            particles.push({
+                x: cx, y: cy,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1,
+                color: `hsl(${(Math.random() * 360 + hueOffset) % 360}, 100%, 65%)`,
+                size: (Math.random() * 4 + 2) * sizeScale,
+                gravity: 0.12
+            });
+        }
+    }
+    
+    function launchRound() {
+        if (!isActive) return;
+        const w = canvas.width, h = canvas.height;
+        if (w === 0 || h === 0) return;
+        addFirework(w/2, h/2, 80, 1.0, 1.0, 0);
+        addFirework(w*0.8, h*0.8, 25, 0.9, 0.7, 120);
+        addFirework(w*0.85, h*0.2, 18, 0.8, 0.55, 240);
+    }
+    
+    function startAnimation() {
+        function draw() {
+            if (!isActive && particles.length === 0) {
+                if (animationId) cancelAnimationFrame(animationId);
+                animationId = null;
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                return;
+            }
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += p.gravity;
+                p.life -= 0.018;
+                if (p.life <= 0 || p.y > canvas.height + 150) {
+                    particles.splice(i, 1);
+                    i--;
+                    continue;
+                }
+                ctx.globalAlpha = p.life * 0.9;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            animationId = requestAnimationFrame(draw);
+        }
+        draw();
+    }
+    
+    function startFireworks() {
+        isActive = true;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        launchRound();
+        startAnimation();
+        intervalId = setInterval(() => { if (isActive) launchRound(); }, 200);
+        
+        setTimeout(() => {
+            isActive = false;
+            if (intervalId) clearInterval(intervalId);
+            if (letsgo) letsgo.style.opacity = '1';
+            setTimeout(() => { if (canvas.parentNode) canvas.parentNode.removeChild(canvas); }, 500);
+        }, 3000);
+    }
+    
+    startFireworks();
+})();
+
+// ============ 页面切换 & 花瓣背景 ============
+const letsgoBtn = document.getElementById('letsgoText');
+const pageFirework = document.getElementById('pageFirework');
+const pageBirthday = document.getElementById('pageBirthday');
+const readyBtn = document.getElementById('readyBtn');
+const pageDrawing = document.getElementById('pageDrawing');
+const pagePlant = document.getElementById('pagePlant');
+const pageFourth = document.getElementById('pageFourth');
+const userDrawingImg = document.getElementById('userDrawingImg');
+const bgMusic = document.getElementById('bgMusic');
+
+// 为第二、三、四页添加花瓣背景（第一页已有，由letsgo触发添加）
+addFlowerBackground(pageDrawing);
+addFlowerBackground(pagePlant);
+addFlowerBackground(pageFourth);
+
+// Let's Go 点击
+letsgoBtn.addEventListener('click', function() {
+    bgMusic.play().catch(e => console.log('音乐播放需要用户交互'));
+
+    pageFirework.style.opacity = '0';
+    pageBirthday.classList.add('show');
+    
+    // 第一页添加花瓣（保留暖黄背景）
+    if (!pageBirthday.querySelector('.flower-bg')) {
+        addFlowerBackground(pageBirthday);
+    }
+    
+    setTimeout(() => { pageFirework.style.display = 'none'; }, 500);
+});
+
+userDrawingImg.src = 'images/pic1.jpg';
+
+// 点击"在这里祝你生日快乐呀，点击翻页" → 第二页
+readyBtn.addEventListener('click', function() {
+    pageBirthday.style.opacity = '0';
+    pageBirthday.style.visibility = 'hidden';
+    pageDrawing.classList.add('show');
+});
+
+// ===== 点击"翻页" → 跳转第三页 =====
+document.addEventListener('click', function(e) {
+    if (e.target.id === '翻页') {
+        pageDrawing.classList.remove('show');
+        pagePlant.classList.add('show');
+        resetPlantPage();
+    }
+});
+
+// ===== 第三页：逐句点击出现 =====
+const plantText = document.getElementById('plantText');
+const plantHint = document.getElementById('plantHint');
+const mushroomImg = document.getElementById('mushroomImg');
+let currentIndex = 0;
+const totalParagraphs = plantText.querySelectorAll('p').length;
+
+function resetPlantPage() {
+    const allP = plantText.querySelectorAll('p');
+    allP.forEach(p => p.classList.remove('show'));
+    mushroomImg.classList.remove('show');
+    currentIndex = 0;
+    plantHint.textContent = '👉 点这里继续 👈';
+    if (allP.length > 0) {
+        allP[0].classList.add('show');
+        currentIndex = 1;
+    }
+}
+
+function showNextItem() {
+    const allP = plantText.querySelectorAll('p');
+    if (!mushroomImg.classList.contains('show') && currentIndex >= 1) {
+        mushroomImg.classList.add('show');
+        plantHint.textContent = '👉 点这里继续 👈';
+        return;
+    }
+    if (currentIndex < allP.length) {
+        allP[currentIndex].classList.add('show');
+        currentIndex++;
+        if (currentIndex >= allP.length) {
+            plantHint.textContent = '继续继续';
+            plantHint.style.color = '#000000';
+            plantHint.style.fontWeight = 'bold';
+            plantHint.onclick = function(e) {
+                e.stopPropagation();
+                pagePlant.classList.remove('show');
+                pageFourth.classList.add('show');
+                resetEnvelope();
+            };
+        } else {
+            plantHint.textContent = '👉 点这里继续 👈';
+            plantHint.style.color = '#ff69b4';
+            plantHint.onclick = function(e) {
+                e.stopPropagation();
+                showNextItem();
+            };
+        }
+    }
+}
+
+plantHint.addEventListener('click', function(e) {
+    e.stopPropagation();
+    showNextItem();
+});
+
+plantText.addEventListener('click', function(e) {
+    if (e.target.tagName === 'P' || e.target.tagName === 'IMG') return;
+    showNextItem();
+});
+
+plantText.querySelectorAll('p').forEach(p => {
+    p.addEventListener('click', function(e) {
+        e.stopPropagation();
+        showNextItem();
+    });
+});
+
+mushroomImg.addEventListener('click', function(e) {
+    e.stopPropagation();
+    showNextItem();
+});
+
+resetPlantPage();
+
+// ===== 第四页：信封交互 =====
+const envelope = document.getElementById('envelope');
+const sealBtn = document.getElementById('sealBtn');
+const letterContent = document.getElementById('letterContent');
+let isEnvelopeOpen = false;
+
+function resetEnvelope() {
+    envelope.classList.remove('open');
+    sealBtn.classList.remove('opened');
+    letterContent.classList.remove('show');
+    isEnvelopeOpen = false;
+}
+
+sealBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (!isEnvelopeOpen) {
+        envelope.classList.add('open');
+        sealBtn.classList.add('opened');
+        letterContent.classList.add('show');
+        isEnvelopeOpen = true;
+    } else {
+        resetEnvelope();
+    }
+});
+</script>
+</body>
+</html>
